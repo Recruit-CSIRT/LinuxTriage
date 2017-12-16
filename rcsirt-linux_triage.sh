@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Recruit-CSIRT
-# @tatsuya_ichida: icchii
-# Date: 12/14/2017
+# R-CSIRT
+# @tatsuya_ichida: icchida
+# Date: 12/15/2017
 # Version: 1.0
 # usage: sudo bash rcsirt-linux_triage.sh
 # Licence: MIT
