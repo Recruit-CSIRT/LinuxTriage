@@ -18,8 +18,9 @@ R-CSIRT Linux Triage tool
   Please put these installers into *option* directory.    
   clamav-0.99.2 and rkhunter-1.4.4 had already set.  
 
-  ## Usage  
-0. Set the rcsirt-linux_triage.sh and options folder in the same directory which Linux server you want to do triage in.
+  ## Usage  
+  
+0. Set the rcsirt-linux_triage.sh and options folder in the same directory which Linux server you want to do triage in.  
         
 1. Check configs(const variable) on shell script top. 
         
