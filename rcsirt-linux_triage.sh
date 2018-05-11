@@ -498,7 +498,7 @@ scan_virus(){
     # backdoor scan
     echo -e "\n[Debug][virus] scan php backdoor ... to phpbackdoor.txt"    
     if [ ! -r $PHPBACKDOOR ]; then
-        echo -e '\n file not exist : options/backdoorscan.php''
+        echo -e '\n file not exist : options/backdoorscan.php'
     elif type php > /dev/null 2>&1; then
         php $PHPBACKDOOR $WEBROOT > $LOC/$IRCASE'-phpbackdoor.txt'
         if [ -n "$WEBROOT2" ] ; then php $PHPBACKDOOR $WEBROOT2 > $LOC/$IRCASE'-phpbackdoor.txt'; fi
