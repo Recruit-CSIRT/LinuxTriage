@@ -6,11 +6,14 @@ R-CSIRT Linux Triage tool
     
   ## Description    
   Linux Server Triage tool for CSIRT.       
-  * Collect not only 'log files' but also 'config file'
+  * Collect not only 'log files' but also 'config file' and "web server's script files"    
   * Find Suspicious Script and Binary on Web Server.    
-  * Include : Web Server Contents backup function    
+  * Include : Backup function of Web Server All Contents on DOCUMENT_ROOT    
+  * [2018.06.20] AUTO Web server's DOCUMENT_ROOT and WEB CONFIG Directories. ( httpd,apache2,nginx support checked)       
+  * [2018.06.20] LOG Archive SCOPE: Automatically from 1 year ago to TODAY when this executed.   
+      
   Operation Check :       
-  	Linux : Ubuntu 14.04, CentOS 7.0    
+  	Linux : Ubuntu 14.04, 16.04, Ubuntu Server, CentOS 7.0, 7.5     
            
   ## Requirements  
   No Requirement for Default Usage.  
@@ -32,7 +35,7 @@ R-CSIRT Linux Triage tool
   `$ sudo bash rcsirt-linux_triage.sh`  
     
 4. Pull tar.gz file created.    
-  	Output files : Please See source code.  
+  	Output files : Please See source code in detail.   
   		ERROR LOG => 0_SCRIPT-ERRORS.txt    
   		Output files tree LOG => 1_OUTPUT-TREE.txt  
     
@@ -42,9 +45,6 @@ R-CSIRT Linux Triage tool
   ## Licence  
   MIT  
     
-  ## Future Vision   
-  We 'd like to decide WEBROOT and WEBSERVICE **automatically** , which is the Target Web server's Document Root Directory and Config Directory.  
-  If you have good ideas to archive it. Please Comment us.  
     
   ## Author  
   Tatsuya Ichida  ([icchida](https://github.com/icchida))   
