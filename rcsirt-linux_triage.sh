@@ -2,8 +2,8 @@
 
 # R-CSIRT
 # @tatsuya_ichida: icchida
-# Date: 12/15/2017
-# Version: 1.0
+# Date: 2018.06.20
+# Version: 2.0
 # usage: sudo bash rcsirt-linux_triage.sh
 # Licence: MIT
 
@@ -14,12 +14,12 @@
 
 
 ### dynamic Configs
-WEBROOT=/var/www/                       ###### web server document root dir
-WEBSERVICE=/etc/httpd/                  ###### web server installed directory
-WEBROOT2=                               ###### web server2 document root dir
-WEBSERVICE2=/etc/nginx/                 ###### web server2 installed directory
-STARTDATE="2010-01-01"                  ###### start date score for getting log rotation file 
-ENDDATE="2017-12-01"                    ###### end date score for getting log rotation file
+WEBROOT=()
+WEBSERVICE=()
+WEBROOT+=                                    ###### web server document root dir (IF YOU ALREADY KNOW, Please ADD)
+WEBSERVICE+=                                 ###### web server installed directory (IF YOU ALREADY KNOW, Please ADD)
+STARTDATE=$((`date -I | cut -d"-" -f1`-1))-`date -I | cut -d"-" -f2,3` ###### start date score for getting log rotation file (DEFAULT 1 year ago)
+ENDDATE=`date -I`                            ###### end date score for getting log rotation file ( TODAY )
 ###
 
 ### static Configs 
@@ -29,15 +29,17 @@ STORAGETEST=1                           ###### STORAGE TEST VARIABLES : STORAGET
 MINSPACE=1000000                        ###### MINSPACE(KB): Set to minimum number of KB required to keep temp files locally
 IRCASE=`hostname`                       ###### basename of results archive
 LOC=/tmp/$IRCASE                        ###### output destination, change according to needs
-TMP=$LOC/$IRCASE'-tmp.txt'          ###### tmp file to redirect results
-ERROR_LOG=$LOC/0_SCRIPT-ERRORS.txt  	###### redirect stderr
+TMP=$LOC/$IRCASE'-tmp.txt'              ###### tmp file to redirect results
+ERROR_LOG=$LOC/0_SCRIPT-ERRORS.txt      ###### redirect stderr and Debug echo
 PHPBACKDOOR=./options/backdoorscan.php  ###### phpbackdoor script
-HASHFLAG=1                              ###### HashFlag 1= get binary hash
+## FLAG options
+HASHFLAG=1                              ###### HashFlag 1=enable : get binary hash
 CLAMAVFLAG=0                            ###### clamavFlag 1= install clamav and scan full
 RKHUNTERFLAG=0                          ###### rkhunterFlag 1= install rkhunter and scan
-MESSAGEFLAG=1                           ###### messageFlag 1= collect mail log
-BACKUPFLAG=0				###### BACKUPFLAG 1= copy web server conf, contents for backup: Hardening purpose
+MESSAGEFLAG=1                           ###### messageFlag 1= collect /var/log/messages and syslog (eg: mail log)
+BACKUPFLAG=0                            ###### BACKUPFLAG 1= copy web server conf, contents for backup
 ### 
+
 
 check_tmpstorage(){
     # Check that there is at least MINSPACE KB available on /
@@ -84,7 +86,7 @@ get_userprofile(){
         home=`echo "$line" | cut -f6 -d:`
         mkdir $LOC/Dir_userprofiles/$user        
         # user shell history
-        echo -e "\n[Debug][userprofile][$user] get user shell history ... to Dir_userprofiles/$user/ shellhistory.txt"
+        echo -e "\n[Debug][userprofile][$user] get user shell history ... to Dir_userprofiles/$user/shellhistory.txt"
         for f in $home/.*_history; do
             count=0
             while read line
@@ -95,13 +97,13 @@ get_userprofile(){
             done < $f
         done        
         # user contabs
-        echo -e "\n[Debug][userprofile][$user] get user crontabs ... to Dir_userprofiles/$user/ crontab.txt"
+        echo -e "\n[Debug][userprofile][$user] get user crontabs ... to Dir_userprofiles/$user/crontab.txt"
         crontab -u $user -l > $LOC/Dir_userprofiles/$user/$IRCASE'-crontab.txt'
         # ssh known hosts
-        echo -e "\n[Debug][userprofile][$user] get ssh known hosts ... to Dir_userprofiles/$user/ ssh_known_hosts.txt"
+        echo -e "\n[Debug][userprofile][$user] get ssh known hosts ... to Dir_userprofiles/$user/ssh_known_hosts.txt"
         cp -RH $home/.ssh/known_hosts $LOC/Dir_userprofiles/$user/$IRCASE'-ssh_known_hosts.txt'
         # ssh config
-        echo -e "\n[Debug][userprofile][$user] get ssh config ... to Dir_userprofiles/$user/ ssh_config.txt"
+        echo -e "\n[Debug][userprofile][$user] get ssh config ... to Dir_userprofiles/$user/ssh_config.txt"
         cp -RH $home/.ssh/config $LOC/Dir_userprofiles/$user/$IRCASE'-ssh_config.txt'
     done < /etc/passwd
 
@@ -315,12 +317,20 @@ get_fileinfo(){
 get_servicereg(){
     # list all services and runlevel
     echo -e "\n[Debug][servicereg] get list all services and runlevel ... to chkconfig.txt"
-    if chkconfig -l &> /dev/null
-    then
+    if chkconfig -l &> /dev/null; then
         chkconfig -l > $LOC/$IRCASE'-chkconfig.txt'
     else
         chkconfig --list > $LOC/$IRCASE'-chkconfig.txt'
     fi
+    # list all services and runlevel on ubuntu16 ~
+    if sysv-rc-conf -list &> /dev/null; then
+        sysv-rc-conf -list　>> $LOC/$IRCASE'-chkconfig.txt'
+    else
+        insserv -s　>> $LOC/$IRCASE'-chkconfig.txt'
+    fi
+    # list all services and runlevel on cent7 ~
+    systemctl list-unit-files >> $LOC/$IRCASE'-chkconfig.txt'
+
 
     # cron
     echo -e "\n[Debug][servicereg] get cron information ... to cron*.txt"
@@ -337,6 +347,7 @@ get_servicereg(){
 get_logs(){
     # logs
     # SCOPE : STARTDATE ~ ENDDATE  find . -type f -name "*.php" -newermt "$STARTDATE" -and ! -newermt "$ENDDATE" -ls
+    echo "LOG SCOPE: FROM "$STARTDATE" TO "$ENDDATE
 
     # httpd logs
     echo -e "\n[Debug][logs] get httpd log ... to Dir_httpdlogs"
@@ -414,7 +425,7 @@ get_srvconf(){
     # get webserver config: ex *.conf | /conf/ under web document root
     # WEB: apache, tomcat, 
     echo -e "\n[Debug][srvconf] get web server conf ... to Dir_srvconf and srvconfig.txt(list)"
-    find $WEBROOT $WEBROOT2 $WEBSERVICE $WEBSERVICE2 \( -name '*.conf*' -o -name '*.xml' -o -name '*htaccess' -o \( -type d -name 'conf' \) \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; > $LOC/$IRCASE'-srvconfig.txt'
+    find ${WEBROOT[@]} ${WEBSERVICE[@]} \( -name '*.conf*' -o -name '*.xml' -o -name '*htaccess' -o \( -type d -name 'conf' \) \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; > $LOC/$IRCASE'-srvconfig.txt'
 
     # get db config
     # DATABASE : mysql & maria or postgres or oracle or maria
@@ -483,11 +494,11 @@ get_srvcontents(){
     # make output dir
     mkdir $LOC/Dir_srvcontents
 
-    echo -e "\n[Debug][srvcontents] get server contents "$WEBROOT" "$WEBROOT2"... to srvcontents.txt"
-    find $WEBROOT $WEBROOT2 \( -name '*.php' -o -name '*.js' -o -name '*.py' -o -name '*.rb' -o  -name '*.go' -o -name '*.war' -o -name '*.pl' -o -name '*.cgi'  \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvcontents/ \; > $LOC/$IRCASE'-srvcontents.txt'
+    echo -e "\n[Debug][srvcontents] get server contents "${WEBROOT[@]}"... to srvcontents.txt"
+    find ${WEBROOT[@]} \( -name '*.php' -o -name '*.js' -o -name '*.py' -o -name '*.rb' -o  -name '*.go' -o -name '*.war' -o -name '*.pl' -o -name '*.cgi'  \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvcontents/ \; > $LOC/$IRCASE'-srvcontents.txt'
     
-    echo -e "\n[Debug][srvcontents] get suspicous executable ...( /tmp  "$WEBROOT" "$WEBROOT2") to susbin.txt"
-    find $WEBROOT $WEBROOT2 -type f -exec file {}  \; | egrep -qw "(ELF|executable|PE32|shared object|script)" | xargs -i echo {}; cp -RH --parents -rp {} $LOC/Dir_srvcontents/ >> $LOC/$IRCASE'-susbin.txt' 
+    echo -e "\n[Debug][srvcontents] get suspicous executable ...( /tmp  "${WEBROOT[@]}") to susbin.txt"
+    find ${WEBROOT[@]} -type f -exec file {}  \; | egrep -qw "(ELF|executable|PE32|shared object|script)" | xargs -i echo {}; cp -RH --parents -rp {} $LOC/Dir_srvcontents/ >> $LOC/$IRCASE'-susbin.txt' 
     find /tmp -type f -exec file {}  \; | egrep -qw "(ELF|executable|PE32|shared object|script)" | xargs -i echo {};cp -RH --parents -rp {} $LOC/Dir_srvcontents/ >> $LOC/$IRCASE'-susbin.txt' 
 
 }
@@ -500,8 +511,9 @@ scan_virus(){
     if [ ! -r $PHPBACKDOOR ]; then
         echo -e '\n file not exist : options/backdoorscan.php'
     elif type php > /dev/null 2>&1; then
-        php $PHPBACKDOOR $WEBROOT > $LOC/$IRCASE'-phpbackdoor.txt'
-        if [ -n "$WEBROOT2" ] ; then php $PHPBACKDOOR $WEBROOT2 > $LOC/$IRCASE'-phpbackdoor.txt'; fi
+        for item in ${WEBROOT[@]}; do
+            php $PHPBACKDOOR $item >> $LOC/$IRCASE'-phpbackdoor.txt'
+        done
     else
         echo -e '\n php does not installed. '   
     fi
@@ -517,7 +529,13 @@ scan_virus(){
         make
         cd ../../
 
+        # signiture 
         gpg --verify ./options/clamav-0.99.2.tar.gz.sig
+        
+        # [UPDATE] (if you connect to internet)
+        # freshclam
+
+        # virus scan
         clamscan -r -i / --exclude=".*\.core|.*\.snap"$ > $LOC/$IRCASE'-clamscan.txt'
 
         #[remind] uninstall clamav
@@ -531,8 +549,12 @@ scan_virus(){
         echo -e "\n[Debug][virus] install and scan rkhunter ... to rkhunter.txt"   
         tar -zxvf ./options/rkhunter-1.4.4.tar.gz; cd rkhunter-1.4.4
         ./install.sh --install
-        rkhunter --update
-        rkhunter --propupd
+
+        # [UPDATE] (if you connect to internet)
+        #rkhunter --update
+        #rkhunter --propupd
+
+        # rootkit scan
         rkhunter --check --skip-keypress --report-warnings-only > $LOC/$IRCASE'-rkhunter.txt'
         # white list: https://qiita.com/Peranikov/items/3f14476d0767d4589bcb
         #[remind] uninstall rkhunter
@@ -562,12 +584,10 @@ additional_backup(){
     cp -RH --parents -rp /var/spool $LOC/Dir_backup/
     echo 'cp -RH --parents -rp /etc/cron* $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
     cp -RH --parents -rp /etc/cron* $LOC/Dir_backup/
-    echo 'cp -RH --parents -rp '$WEBROOT' $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
-    cp -RH --parents -rp $WEBROOT $LOC/Dir_backup/ >> $LOC/$IRCASE'-backup.txt'
-    if [ -n "$WEBROOT2" ] ; then
-        echo 'cp -RH --parents -rp '$WEBROOT2' $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
-        cp -RH --parents -rp $WEBROOT2 $LOC/Dir_backup/ >> $LOC/$IRCASE'-backup.txt'
-    fi
+    for item in ${WEBROOT[@]}; do
+        echo 'cp -RH --parents -rp '$item' $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
+        cp -RH --parents -rp $item $LOC/Dir_backup/ >> $LOC/$IRCASE'-backup.txt'
+    done
     echo -e "\n[Debug][backup] backup func FIN ..." 
 }
 
@@ -582,9 +602,67 @@ additional_backup(){
 # start timestamp
 date '+%Y-%m-%d %H:%M:%S %Z %:z' > $LOC/$IRCASE'-date.txt'
 
-echo -e "\n[Debug] Collect triage data  ..."
+### Detect WEBROOT and WEBSERVICE
+echo -e "\n[Debug] Detect ( WEBROOT and WEBSERVICE ) PATH ... STATIC CONF << ( "${WEBROOT[@]}" and "${WEBSERVICE[@]}" )."
+
 {
     echo "##############  DEBUG & ERROR LOGS START ####################"
+
+    echo -e "\n[Debug][httpd] Searching WebROOT and WEBSERVICE."
+    WEBCONF_HTTPD=`httpd -V | grep "SERVER_CONFIG_FILE" | cut -d"=" -f2 | xargs`
+    if [ ${#WEBCONF_HTTPD} -gt 1 ]; then
+        echo -e "[Debug] httpd FOUND (installed)"
+        HTTPD=`httpd -V | grep "HTTPD_ROOT" | cut -d"=" -f2 | xargs`
+        if [ ${WEBCONF_HTTPD:0:1} != "/" ]; then
+            WEBCONF_HTTPD=$HTTPD/$WEBCONF_HTTPD
+        fi        
+        WEBSERVICE+=( $HTTPD )
+        WEBROOT+=( `grep -v "#" $WEBCONF_HTTPD | grep DocumentRoot | cut -d" " -f2 | xargs` )
+        WEBROOT+=( `grep -v "#" $WEBCONF_HTTPD | grep -i include | grep conf | cut -d" " -f2 | xargs cat | grep DocumentRoot | cut -d" " -f2 | xargs` )
+        HTTPD_WILDCONF=`grep -v "#" $WEBCONF_HTTPD | grep -i include | grep conf |grep "\*" | cut -d" " -f2 | xargs`
+        if [ ${#HTTPD_WILDCONF} -gt 1 ]; then
+            WEBROOT+=( `grep -v "#" $HTTPD_WILDCONF | grep DocumentRoot | cut -d" " -f2 | xargs` )
+        fi
+    fi
+
+    echo -e "\n[Debug][apache2] Searching WebROOT and WEBSERVICE."
+    WEBCONF_APACHE2=`apache2ctl -V | grep "SERVER_CONFIG_FILE" | cut -d"=" -f2 | xargs`
+    if [ ${#WEBCONF_APACHE2} -gt 1 ]; then
+        echo -e "[Debug] apache2 FOUND (installed)"
+        APACHE2=`apache2ctl -V | grep "HTTPD_ROOT" | cut -d"=" -f2 | xargs`
+        if [ ${WEBCONF_APACHE2:0:1} != "/" ]; then
+            WEBCONF_APACHE2=$APACHE2/$WEBCONF_APACHE2
+        fi
+        WEBSERVICE+=( $APACHE2 )
+        WEBROOT+=( `grep -v "#" $WEBCONF_APACHE2 | grep "Options Indexes" -B1 | grep Directory | sed -e "s/^.*<Directory \(.*\)>.*$/\1/" | xargs` )  
+        APACHE2_INCLUDE=`grep -v "#" $WEBCONF_APACHE2 | grep -i include | grep conf | cut -d" " -f2 | xargs`
+        if [ ${#APACHE2_INCLUDE} -gt 1 ]; then  
+            WEBROOT+=( `cat $APACHE2_INCLUDE | grep -v "#" | grep "Options Indexes" -B1 | grep Directory | sed -e "s/^.*<Directory \(.*\)>.*$/\1/" | xargs`)
+        fi
+    fi
+
+    echo -e "\n[Debug][nginx] Searching WebROOT and WEBSERVICE."
+    WEBCONF_NGINX=`nginx -V 2>&1 1>/dev/null | grep "configure arguments" | sed -e "s/^.*--conf-path=\(.*\)conf.*$/\1/" | xargs`'conf'
+    if [ ${#WEBCONF_NGINX} -gt 1 ]; then
+        echo -e "[Debug] nginx FOUND (installed)"
+        WEBROOT+=( `grep -v "#" $WEBCONF_NGINX | grep root | sed -e "s/^.*root\(.*\);.*$/\1/" | grep "/" | xargs` )
+        WEBROOT+=( `grep -v "#" $WEBCONF_NGINX | grep -i include | grep conf | sed -e "s/^.*include\(.*\);.*$/\1/" | grep "/" | xargs cat | grep -v "#" | grep root | sed -e "s/^.*root\(.*\);.*$/\1/" | xargs` )
+        NGINX_WILDCONF=`grep -v "#" $WEBCONF_NGINX | grep -i include | grep conf  | sed -e "s/^.*include\(.*\);.*$/\1/" | grep "\*" | cut -d" " -f2`
+        if [ ${#NGINX_WILDCONF} -gt 1 ]; then
+            WEBROOT+=( `grep -v "#" $NGINX_WILDCONF | grep root | sed -e "s/^.*root\(.*\);.*$/\1/" | grep "/" | xargs` )    
+        fi
+    fi
+
+    echo -e "\nRESULT WEBROOTs: ["${WEBROOT[@]}"]"
+    echo -e "RESULT WEBSERVICEs: ["${WEBSERVICE[@]}"]" 
+} >> $ERROR_LOG
+
+
+echo -e "\nRESULT WEBROOTs: ["${WEBROOT[@]}"]"
+echo -e "RESULT WEBSERVICEs: ["${WEBSERVICE[@]}"]" 
+
+echo -e "\n[Debug] Collect triage data  ..."
+{
     get_userprofile 2>&1
     get_systeminfo 2>&1
     get_activity 2>&1
@@ -605,12 +683,17 @@ if [ "$BACKUPFLAG" = "1" ] ; then
         additional_backup 2>&1
     } >> $ERROR_LOG
 else
-        echo -e 'BACKUPFLAG = '$BACKUPFLAG' -> NOT Enabled' 
+    echo -e 'BACKUPFLAG = '$BACKUPFLAG' -> NOT Enabled' 
 fi
 
 # tree of outputs 
 {
- tree -alh $LOC > $LOC/1_OUTPUT-TREE.txt
+ echo -e "\n[Debug] make OUTPUT-TREE  ..."
+ if tree &> /dev/null; then
+    tree -alh $LOC > $LOC/1_OUTPUT-TREE.txt
+ else
+    find $LOC | sort | sed '1d;s/^\.//;s/\/\([^/]*\)$/|--\1/;s/\/[^/|]*/| /g' > $LOC/1_OUTPUT-TREE.txt
+ fi
 }
 
 echo -e "\n[Debug] Compress to tar.gz  ..."
