@@ -1,7 +1,6 @@
 #!/bin/bash
 
 # R-CSIRT
-# @tatsuya_ichida: icchida
 # Date: 2018.06.20
 # Version: 2.0
 # usage: sudo bash rcsirt-linux_triage.sh
