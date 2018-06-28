@@ -18,8 +18,8 @@ WEBROOT=()
 WEBSERVICE=()
 WEBROOT+=                                    ###### web server document root dir (IF YOU ALREADY KNOW, Please ADD)
 WEBSERVICE+=                                 ###### web server installed directory (IF YOU ALREADY KNOW, Please ADD)
-STARTDATE=$((`date -I | cut -d"-" -f1`-1))-`date -I | cut -d"-" -f2,3` ###### start date score for getting log rotation file (DEFAULT 1 year ago)
-ENDDATE=`date -I`                            ###### end date score for getting log rotation file ( TODAY )
+STARTDATE=$((`date -I | cut -d"-" -f1`-1))-`date -I | cut -d"-" -f2,3` ###### start date score for getting log rotation file (DEFAULT 1 year ago) except for boot.log,kern.log,auth.log
+ENDDATE=`date -I | cut -d"-" -f1,2`-$((`date -I | cut -d"-" -f3`+1))   ###### end date score for getting log rotation file ( TODAY ) except for boot.log,kern.log,auth.log
 ###
 
 ### static Configs 
@@ -44,7 +44,7 @@ BACKUPFLAG=0                            ###### BACKUPFLAG 1= copy web server con
 check_tmpstorage(){
     # Check that there is at least MINSPACE KB available on /
     if [ "$STORAGETEST" = "1" ] ; then
-	echo -e "\n[Debug][check_tmpstorage] check /tmp storage enough..."
+    echo -e "\n[Debug][check_tmpstorage] check /tmp storage enough..."
         DF=$(df /tmp)
         while IFS=' ' read -ra RES; do
             LEN=${#RES[@]}
@@ -353,27 +353,27 @@ get_logs(){
     echo -e "\n[Debug][logs] get httpd log ... to Dir_httpdlogs"
     mkdir $LOC/Dir_httpdlogs
     if [ -d "/var/log/httpd/" ]; then
-        find /var/log/httpd/ -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_httpdlogs/ \;
+        find /var/log/httpd/ -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_httpdlogs/ 
     fi
     # apache logs
     echo -e "\n[Debug][logs] get apache log ... to Dir_apachelogs"
     mkdir $LOC/Dir_apachelogs
     if [ -d "/var/log/apache2/" ] || [ -d "/var/log/apache/" ]; then
-        find /var/log/apache* -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_apachelogs/ \;
+        find /var/log/apache* -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_apachelogs/ 
     fi
 
     # nginx logs
     echo -e "\n[Debug][logs] get nginx log ... to Dir_nginxlogs"
     mkdir $LOC/Dir_nginxlogs
     if [ -d "/var/log/nginx/" ]; then
-        find /var/log/nginx/ -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_nginxlogs/ \;
+        find /var/log/nginx/ -name *access* -o -name *error* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_nginxlogs/ 
     fi
 
     # squid logs
     echo -e "\n[Debug][logs] get squid log ... to Dir_squidlogs"
     mkdir $LOC/Dir_squidlogs
     if [ -d "/var/log/squid/" ] || [ -d "/var/log/squid3/" ]; then
-        find /var/log/squid* -name *access* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_squidlogs/ \;
+        find /var/log/squid* -name *access* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_squidlogs/ 
     fi
 
     # mysql & maria logs
@@ -381,38 +381,38 @@ get_logs(){
     mkdir $LOC/Dir_dblogs
     if [ -d "/var/log/mariadb/" ]; then
         mkdir $LOC/Dir_dblogs/mariadb
-        find /var/log/mariadb/* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_dblogs/mariadb/ \;
+        find /var/log/mariadb/* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_dblogs/mariadb/ 
     elif [ -d "/var/log/mysql/" ]; then
         mkdir $LOC/Dir_dblogs/mysqldb
-        find /var/log/mysql/* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_dblogs/mysqldb/ \;
+        find /var/log/mysql/* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_dblogs/mysqldb/
     fi
 
 
     # boot logs
     echo -e "\n[Debug][logs] get boot log ... to Dir_bootlogs"
     mkdir $LOC/Dir_bootlogs
-    find /var/log/boot* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_bootlogs/ \;
+    find /var/log/boot* | xargs -I{} cp -RH {} $LOC/Dir_bootlogs/ 
     # kernel logs
     echo -e "\n[Debug][logs] get kernel log ... to Dir_kernlogs"
     mkdir $LOC/Dir_kernlogs    
-    find /var/log/kern* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_kernlogs/ \;
+    find /var/log/kern* | xargs -I{} cp -RH {} $LOC/Dir_kernlogs/ 
     # auth log
     echo -e "\n[Debug][logs] get auth log ... Dir_authlogs"
     mkdir $LOC/Dir_authlogs
-    find /var/log/auth* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_authlogs/ \;
+    find /var/log/auth* | xargs -I{} cp -RH {} $LOC/Dir_authlogs/
     # security log
     echo -e "\n[Debug][logs] get security log ... Dir_securelogs"
     mkdir $LOC/Dir_securelogs
-    find /var/log/secure* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_securelogs/ \;
+    find /var/log/secure* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_securelogs/ 
     # mail log
     echo -e "\n[Debug][logs] get mail log ... Dir_maillogs"
     mkdir $LOC/Dir_maillogs
-    find /var/log/mail* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_maillogs/ \;
+    find /var/log/mail* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_maillogs/ 
 
     if [ "$MESSAGEFLAG" = "1" ] ; then
         echo -e "\n[Debug][logs] get message log ... Dir_messagelogs"
         mkdir $LOC/Dir_messagelogs
-        find /var/log/ -name message* -o -name syslog* -newermt $STARTDATE -and ! -newermt $ENDDATE -exec cp -RH {} $LOC/Dir_messagelogs/ \; # redhat / centos (message), ubuntu (syslog) 
+        find /var/log/ -name message* -o -name syslog* -newermt $STARTDATE -and ! -newermt $ENDDATE | xargs -I{} cp -RH {} $LOC/Dir_messagelogs/  # redhat / centos (message), ubuntu (syslog) 
     else
          echo -e 'MESSAGEFLAG = '$MESSAGEFLAG' -> NOT Enabled'  
     fi
@@ -425,7 +425,7 @@ get_srvconf(){
     # get webserver config: ex *.conf | /conf/ under web document root
     # WEB: apache, tomcat, 
     echo -e "\n[Debug][srvconf] get web server conf ... to Dir_srvconf and srvconfig.txt(list)"
-    find ${WEBROOT[@]} ${WEBSERVICE[@]} \( -name '*.conf*' -o -name '*.xml' -o -name '*htaccess' -o \( -type d -name 'conf' \) \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; > $LOC/$IRCASE'-srvconfig.txt'
+    find ${WEBROOT[@]} ${WEBSERVICE[@]} \( -name '*.conf*' -o -name '*.xml' -o -name '*htaccess' -o \( -type d -name 'conf' \) \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  > $LOC/$IRCASE'-srvconfig.txt'
 
     # get db config
     # DATABASE : mysql & maria or postgres or oracle or maria
@@ -434,58 +434,58 @@ get_srvconf(){
         echo -e "[Debug][srvconf] mysql db found ... to Dir_srvconf and srvconfig.txt(list)"
         for i in `mysql --help | grep '/my.cnf' | tr ' ' '\n' `; do echo -e $i'\n' >> $LOC/$IRCASE'-srvconfig.txt';cp -RH --parents -rp $i $LOC/Dir_srvconf/; done
     else
-	echo -e "[Debug][srvconf] mysql db NOT found"
+    echo -e "[Debug][srvconf] mysql db NOT found"
     fi
     
     echo -e "\n[Debug][srvconf] searching postgres db  ... "
     if type psql > /dev/null 2>&1; then
         echo -e "[Debug][srvconf] postgres db found ... to Dir_srvconf and srvconfig.txt(list)"
-        find /var/lib/pgsql/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'
+        find /var/lib/pgsql/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'
     else
-	echo -e "[Debug][srvconf] postgres db NOT found"
+    echo -e "[Debug][srvconf] postgres db NOT found"
     fi
     
     echo -e "\n[Debug][srvconf] searching oracle db  ... "
     if [ -d '/usr/lib/oracle/' ]; then
         echo -e "[Debug][srvconf] oracle db found ... to Dir_srvconf and srvconfig.txt(list)"
-        find /usr/lib/oracle/ \( -name '*.conf*' -o -name '*.cnf*' \)  -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'  
+        find /usr/lib/oracle/ \( -name '*.conf*' -o -name '*.cnf*' \)  -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'  
     else
-	echo -e "[Debug][srvconf] oracle db NOT found"
+    echo -e "[Debug][srvconf] oracle db NOT found"
     fi
     
     echo -e "\n[Debug][srvconf] searching maria db  ... "
     if [ -d '/etc/my.cnf.d/' ]; then
         echo -e "[Debug][srvconf] maria db found ... to Dir_srvconf and srvconfig.txt(list)"
-        find /etc/my.cnf.d/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'  
+        find /etc/my.cnf.d/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'  
     else
-	echo -e "[Debug][srvconf] maria db NOT found"
+    echo -e "[Debug][srvconf] maria db NOT found"
     fi
 
     #PROXY: squid
     echo -e "\n[Debug][srvconf] searching squid proxy  ... "
     if [ -d '/usr/local/squid/' ] || [ -d "/usr/local/squid3/" ]; then       
         echo -e "[Debug][srvconf] squid proxy found ... to Dir_srvconf and srvconfig.txt(list)"
-        find /usr/local/squid* \( -name '*.conf*' -o -name '*.cnf*' \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'  
+        find /usr/local/squid* \( -name '*.conf*' -o -name '*.cnf*' \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'  
     else
-	echo -e "[Debug][srvconf] squid proxy NOT found"
+    echo -e "[Debug][srvconf] squid proxy NOT found"
     fi
 
     #FTP: vsftpd
     echo -e "\n[Debug][srvconf] searching vsftpd  ... "
     if [ -d '/etc/vsftpd/' ]; then       
         echo -e "[Debug][srvconf] vsftpd found ... "
-        find /etc/vsftpd/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'  
+        find /etc/vsftpd/ \( -name '*.conf*' -o -name '*.cnf*' \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'  
     else
-	echo -e "[Debug][srvconf] vsftpd NOT found"
+    echo -e "[Debug][srvconf] vsftpd NOT found"
     fi    
 
     #Mail:
     echo -e "\n[Debug][srvconf] searching mail  ... "
     if [ -f '/usr/share/misc/mail.rc' ] || [ -f ' /usr/local/etc/mail.rc' ] || [ -f '/etc/mail.rc' ] ; then  
         echo -e "[Debug][srvconf] mailserver config found ... "
-        find /etc/ /usr/share/misc/ /usr/local/etc/ -name mail* -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvconf/ \; >> $LOC/$IRCASE'-srvconfig.txt'   
+        find /etc/ /usr/share/misc/ /usr/local/etc/ -name mail* -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvconf/  >> $LOC/$IRCASE'-srvconfig.txt'   
     else
-	echo -e "[Debug][srvconf] mailserver config NOT found"
+    echo -e "[Debug][srvconf] mailserver config NOT found"
     fi
 
 }    
@@ -495,7 +495,7 @@ get_srvcontents(){
     mkdir $LOC/Dir_srvcontents
 
     echo -e "\n[Debug][srvcontents] get server contents "${WEBROOT[@]}"... to srvcontents.txt"
-    find ${WEBROOT[@]} \( -name '*.php' -o -name '*.js' -o -name '*.py' -o -name '*.rb' -o  -name '*.go' -o -name '*.war' -o -name '*.pl' -o -name '*.cgi'  \) -ls -exec cp -RH --parents -rp {} $LOC/Dir_srvcontents/ \; > $LOC/$IRCASE'-srvcontents.txt'
+    find ${WEBROOT[@]} \( -name '*.php' -o -name '*.js' -o -name '*.py' -o -name '*.rb' -o  -name '*.go' -o -name '*.war' -o -name '*.pl' -o -name '*.cgi'  \) -ls | xargs -I{} cp -RH --parents -rp {} $LOC/Dir_srvcontents/  > $LOC/$IRCASE'-srvcontents.txt'
     
     echo -e "\n[Debug][srvcontents] get suspicous executable ...( /tmp  "${WEBROOT[@]}") to susbin.txt"
     find ${WEBROOT[@]} -type f -exec file {}  \; | egrep -qw "(ELF|executable|PE32|shared object|script)" | xargs -i echo {}; cp -RH --parents -rp {} $LOC/Dir_srvcontents/ >> $LOC/$IRCASE'-susbin.txt' 
@@ -578,8 +578,8 @@ additional_backup(){
     echo -e "\n[Debug][backup] try to additional backup ... to Dir_backup, backup.txt(list)" 
     mkdir $LOC/Dir_backup
     mkdir $LOC/Dir_backup/CONFIG
-    find / -type f \( -name *.conf -o -name *.cnf \) -ls -exec cp -RH --parent -rp {} $LOC/Dir_backup/CONFIG \; >> $LOC/$IRCASE'-backup.txt'
-    find / -type d \( -name *conf* -o -name *config* \) -ls -exec cp -RH --parent -rp {} $LOC/Dir_backup/CONFIG \; >> $LOC/$IRCASE'-backup.txt'
+    find / -type f \( -name *.conf -o -name *.cnf \) -ls | xargs -I{} cp -RH --parent -rp {} $LOC/Dir_backup/CONFIG >> $LOC/$IRCASE'-backup.txt'
+    find / -type d \( -name *conf* -o -name *config* \) -ls | xargs -I{} cp -RH --parent -rp {} $LOC/Dir_backup/CONFIG >> $LOC/$IRCASE'-backup.txt'
     echo 'cp -RH --parents -rp /var/spool $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
     cp -RH --parents -rp /var/spool $LOC/Dir_backup/
     echo 'cp -RH --parents -rp /etc/cron* $LOC/Dir_backup/' >> $LOC/$IRCASE'-backup.txt'
@@ -613,7 +613,7 @@ echo -e "\n[Debug] Detect ( WEBROOT and WEBSERVICE ) PATH ... STATIC CONF << ( "
     if [ ${#WEBCONF_HTTPD} -gt 1 ]; then
         echo -e "[Debug] httpd FOUND (installed)"
         HTTPD=`httpd -V | grep "HTTPD_ROOT" | cut -d"=" -f2 | xargs`
-        if [ ${WEBCONF_HTTPD:0:1} != "/" ]; then
+        if [ ${WEBCONF_HTTPD:zero:1} != "/" ]; then
             WEBCONF_HTTPD=$HTTPD/$WEBCONF_HTTPD
         fi        
         WEBSERVICE+=( $HTTPD )
@@ -630,7 +630,7 @@ echo -e "\n[Debug] Detect ( WEBROOT and WEBSERVICE ) PATH ... STATIC CONF << ( "
     if [ ${#WEBCONF_APACHE2} -gt 1 ]; then
         echo -e "[Debug] apache2 FOUND (installed)"
         APACHE2=`apache2ctl -V | grep "HTTPD_ROOT" | cut -d"=" -f2 | xargs`
-        if [ ${WEBCONF_APACHE2:0:1} != "/" ]; then
+        if [ ${WEBCONF_APACHE2:zero:1} != "/" ]; then
             WEBCONF_APACHE2=$APACHE2/$WEBCONF_APACHE2
         fi
         WEBSERVICE+=( $APACHE2 )
@@ -715,6 +715,3 @@ cd /tmp
 rm -r $LOC
 
 echo -e "\n[Debug] triage script END "
-
-
-
